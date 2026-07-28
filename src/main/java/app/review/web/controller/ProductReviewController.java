@@ -55,9 +55,10 @@ public class ProductReviewController {
 
     @DeleteMapping("/{reviewId}")
     public ResponseEntity<Void> deleteReview(
-            @PathVariable UUID reviewId) {
+            @PathVariable UUID reviewId,
+            @RequestParam("userId") UUID userId) {
 
-        productReviewService.deleteReview(reviewId);
+        productReviewService.deleteReview(reviewId, userId);
 
         return ResponseEntity.noContent().build();
     }

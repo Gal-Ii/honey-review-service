@@ -9,10 +9,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 @NoArgsConstructor
 public class UpdateReviewRequest {
+
+    @NotNull(message = "User ID is required.")
+    private UUID userId;
 
     @NotNull(message = "Rating is required.")
     @Min(value = 1, message = "Rating must be at least 1.")

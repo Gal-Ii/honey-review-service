@@ -2,6 +2,7 @@ package app.review.service;
 
 import app.review.exception.ReviewAlreadyExistsException;
 import app.review.exception.ReviewNotFoundException;
+import app.review.exception.UnauthorizedReviewOperationException;
 import app.review.model.entity.ProductReview;
 import app.review.repository.ProductReviewRepository;
 import app.review.web.dto.CreateReviewRequest;
@@ -9,6 +10,7 @@ import app.review.web.dto.ReviewResponse;
 import app.review.web.dto.UpdateReviewRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +18,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductReviewService {
 
     private final ProductReviewRepository productReviewRepository;
@@ -67,6 +70,13 @@ public class ProductReviewService {
 
         ProductReview savedReview = productReviewRepository.save(review);
 
+        log.info(
+                "Created review [{}] for product [{}] by user [{}].",
+                savedReview.getId(),
+                savedReview.getProductId(),
+                savedReview.getUserId()
+        );
+
         return mapToReviewResponse(savedReview);
     }
 
@@ -80,16 +90,27 @@ public class ProductReviewService {
                         "Review with ID " + reviewId + " was not found."
                 ));
 
+        if (!review.getUserId().equals(request.getUserId())) {
+            throw new UnauthorizedReviewOperationException(
+                    "You cannot update another user's review."
+            );
+        }
+
         review.setRating(request.getRating());
         review.setComment(request.getComment());
         review.setUpdatedOn(LocalDateTime.now());
 
         ProductReview updatedReview = productReviewRepository.save(review);
+        log.info(
+                "Updated review [{}] by user [{}].",
+                updatedReview.getId(),
+                updatedReview.getUserId()
+        );
 
         return mapToReviewResponse(updatedReview);
     }
 
-    public void deleteReview(UUID reviewId) {
+    public void deleteReview(UUID reviewId, UUID userId) {
 
         ProductReview review = productReviewRepository
                 .findById(reviewId)
@@ -97,6 +118,19 @@ public class ProductReviewService {
                         "Review with ID " + reviewId + " was not found."
                 ));
 
+        if (!review.getUserId().equals(userId)) {
+            throw new UnauthorizedReviewOperationException(
+                    "You cannot delete another user's review."
+            );
+        }
+
         productReviewRepository.delete(review);
+
+        log.info(
+                "Deleted review [{}] for product [{}] by user [{}].",
+                review.getId(),
+                review.getProductId(),
+                review.getUserId()
+        );
     }
 }
