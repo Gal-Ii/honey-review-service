@@ -143,4 +143,38 @@ class GlobalExceptionHandlerTest {
                 response.getBody().getMessage()
         );
     }
+
+    @Test
+    void handleInvalidReviewDataShouldReturnBadRequest() {
+        InvalidReviewDataException exception =
+                new InvalidReviewDataException(
+                        "Rating must be between 1 and 5."
+                );
+
+        ResponseEntity<ErrorResponse> response =
+                exceptionHandler.handleInvalidReviewData(exception);
+
+        assertEquals(
+                HttpStatus.BAD_REQUEST,
+                response.getStatusCode()
+        );
+
+        assertNotNull(response.getBody());
+        assertNotNull(response.getBody().getTimestamp());
+
+        assertEquals(
+                HttpStatus.BAD_REQUEST.value(),
+                response.getBody().getStatus()
+        );
+
+        assertEquals(
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                response.getBody().getError()
+        );
+
+        assertEquals(
+                "Rating must be between 1 and 5.",
+                response.getBody().getMessage()
+        );
+    }
 }

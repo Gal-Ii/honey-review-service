@@ -1,5 +1,6 @@
 package app.review.service;
 
+import app.review.exception.InvalidReviewDataException;
 import app.review.exception.ReviewAlreadyExistsException;
 import app.review.exception.ReviewNotFoundException;
 import app.review.exception.UnauthorizedReviewOperationException;
@@ -25,6 +26,12 @@ public class ProductReviewService {
 
     public List<ReviewResponse> getReviewsByProductId(UUID productId) {
 
+        if (productId == null) {
+            throw new InvalidReviewDataException(
+                    "Product id is required."
+            );
+        }
+
         return productReviewRepository
                 .findAllByProductIdOrderByCreatedOnDesc(productId)
                 .stream()
@@ -48,6 +55,8 @@ public class ProductReviewService {
 
     public ReviewResponse createReview(CreateReviewRequest request) {
 
+        validateCreateRequest(request);
+
         productReviewRepository
                 .findByProductIdAndUserId(request.getProductId(), request.getUserId())
                 .ifPresent(review -> {
@@ -61,9 +70,9 @@ public class ProductReviewService {
         ProductReview review = ProductReview.builder()
                 .productId(request.getProductId())
                 .userId(request.getUserId())
-                .authorName(request.getAuthorName())
+                .authorName(request.getAuthorName().trim())
                 .rating(request.getRating())
-                .comment(request.getComment())
+                .comment(request.getComment().trim())
                 .createdOn(now)
                 .updatedOn(now)
                 .build();
@@ -84,6 +93,14 @@ public class ProductReviewService {
             UUID reviewId,
             UpdateReviewRequest request) {
 
+        if (reviewId == null) {
+            throw new InvalidReviewDataException(
+                    "Review id is required."
+            );
+        }
+
+        validateUpdateRequest(request);
+
         ProductReview review = productReviewRepository
                 .findById(reviewId)
                 .orElseThrow(() -> new ReviewNotFoundException(
@@ -97,7 +114,7 @@ public class ProductReviewService {
         }
 
         review.setRating(request.getRating());
-        review.setComment(request.getComment());
+        review.setComment(request.getComment().trim());
         review.setUpdatedOn(LocalDateTime.now());
 
         ProductReview updatedReview = productReviewRepository.save(review);
@@ -111,6 +128,18 @@ public class ProductReviewService {
     }
 
     public void deleteReview(UUID reviewId, UUID userId) {
+
+        if (reviewId == null) {
+            throw new InvalidReviewDataException(
+                    "Review id is required."
+            );
+        }
+
+        if (userId == null) {
+            throw new InvalidReviewDataException(
+                    "User id is required."
+            );
+        }
 
         ProductReview review = productReviewRepository
                 .findById(reviewId)
@@ -132,5 +161,104 @@ public class ProductReviewService {
                 review.getProductId(),
                 review.getUserId()
         );
+    }
+
+    private void validateCreateRequest(
+            CreateReviewRequest request) {
+
+        if (request == null) {
+            throw new InvalidReviewDataException(
+                    "Review request is required."
+            );
+        }
+
+        if (request.getProductId() == null) {
+            throw new InvalidReviewDataException(
+                    "Product id is required."
+            );
+        }
+
+        if (request.getUserId() == null) {
+            throw new InvalidReviewDataException(
+                    "User id is required."
+            );
+        }
+
+        if (request.getAuthorName() == null
+                || request.getAuthorName().isBlank()) {
+
+            throw new InvalidReviewDataException(
+                    "Author name is required."
+            );
+        }
+
+        String authorName = request.getAuthorName().trim();
+
+        if (authorName.length() < 3
+                || authorName.length() > 50) {
+
+            throw new InvalidReviewDataException(
+                    "Author name must be between 3 and 50 symbols."
+            );
+        }
+
+        validateReviewContent(
+                request.getRating(),
+                request.getComment()
+        );
+    }
+
+    private void validateUpdateRequest(
+            UpdateReviewRequest request) {
+
+        if (request == null) {
+            throw new InvalidReviewDataException(
+                    "Review update request is required."
+            );
+        }
+
+        if (request.getUserId() == null) {
+            throw new InvalidReviewDataException(
+                    "User id is required."
+            );
+        }
+
+        validateReviewContent(
+                request.getRating(),
+                request.getComment()
+        );
+    }
+
+    private void validateReviewContent(
+            Integer rating,
+            String comment) {
+
+        if (rating == null) {
+            throw new InvalidReviewDataException(
+                    "Rating is required."
+            );
+        }
+
+        if (rating < 1 || rating > 5) {
+            throw new InvalidReviewDataException(
+                    "Rating must be between 1 and 5."
+            );
+        }
+
+        if (comment == null || comment.isBlank()) {
+            throw new InvalidReviewDataException(
+                    "Comment is required."
+            );
+        }
+
+        String trimmedComment = comment.trim();
+
+        if (trimmedComment.length() < 10
+                || trimmedComment.length() > 1000) {
+
+            throw new InvalidReviewDataException(
+                    "Comment must be between 10 and 1000 symbols."
+            );
+        }
     }
 }

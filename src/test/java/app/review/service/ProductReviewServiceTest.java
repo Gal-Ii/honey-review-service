@@ -8,6 +8,7 @@ import app.review.web.dto.UpdateReviewRequest;
 import app.review.exception.ReviewAlreadyExistsException;
 import app.review.exception.ReviewNotFoundException;
 import app.review.exception.UnauthorizedReviewOperationException;
+import app.review.exception.InvalidReviewDataException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class ProductReviewServiceTest {
@@ -391,5 +393,212 @@ class ProductReviewServiceTest {
 
         verify(productReviewRepository, never())
                 .delete(any(ProductReview.class));
+    }
+
+    @Test
+    void getReviewsShouldRejectNullProductId() {
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .getReviewsByProductId(null)
+                );
+
+        assertEquals(
+                "Product id is required.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void createReviewShouldRejectNullRequest() {
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .createReview(null)
+                );
+
+        assertEquals(
+                "Review request is required.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void createReviewShouldRejectMissingProductId() {
+        CreateReviewRequest request =
+                new CreateReviewRequest();
+
+        request.setUserId(UUID.randomUUID());
+        request.setAuthorName("Ivan Ivanov");
+        request.setRating(5);
+        request.setComment(
+                "Excellent natural honey."
+        );
+
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .createReview(request)
+                );
+
+        assertEquals(
+                "Product id is required.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void createReviewShouldRejectInvalidAuthorName() {
+        CreateReviewRequest request =
+                new CreateReviewRequest();
+
+        request.setProductId(UUID.randomUUID());
+        request.setUserId(UUID.randomUUID());
+        request.setAuthorName("A");
+        request.setRating(5);
+        request.setComment(
+                "Excellent natural honey."
+        );
+
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .createReview(request)
+                );
+
+        assertEquals(
+                "Author name must be between 3 and 50 symbols.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void createReviewShouldRejectInvalidRating() {
+        CreateReviewRequest request =
+                new CreateReviewRequest();
+
+        request.setProductId(UUID.randomUUID());
+        request.setUserId(UUID.randomUUID());
+        request.setAuthorName("Ivan Ivanov");
+        request.setRating(6);
+        request.setComment(
+                "Excellent natural honey."
+        );
+
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .createReview(request)
+                );
+
+        assertEquals(
+                "Rating must be between 1 and 5.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void createReviewShouldRejectShortComment() {
+        CreateReviewRequest request =
+                new CreateReviewRequest();
+
+        request.setProductId(UUID.randomUUID());
+        request.setUserId(UUID.randomUUID());
+        request.setAuthorName("Ivan Ivanov");
+        request.setRating(5);
+        request.setComment("Short");
+
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .createReview(request)
+                );
+
+        assertEquals(
+                "Comment must be between 10 and 1000 symbols.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void updateReviewShouldRejectNullReviewId() {
+        UpdateReviewRequest request =
+                new UpdateReviewRequest();
+
+        request.setUserId(UUID.randomUUID());
+        request.setRating(5);
+        request.setComment(
+                "Excellent natural honey."
+        );
+
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService
+                                .updateReview(null, request)
+                );
+
+        assertEquals(
+                "Review id is required.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void updateReviewShouldRejectNullRequest() {
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService.updateReview(
+                                UUID.randomUUID(),
+                                null
+                        )
+                );
+
+        assertEquals(
+                "Review update request is required.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
+    }
+
+    @Test
+    void deleteReviewShouldRejectNullUserId() {
+        InvalidReviewDataException exception =
+                assertThrows(
+                        InvalidReviewDataException.class,
+                        () -> productReviewService.deleteReview(
+                                UUID.randomUUID(),
+                                null
+                        )
+                );
+
+        assertEquals(
+                "User id is required.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(productReviewRepository);
     }
 }
