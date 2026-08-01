@@ -1,46 +1,52 @@
 package app.review.web.controller;
 
 import app.review.service.ProductReviewService;
-import app.review.web.dto.ReviewResponse;
 import app.review.web.dto.CreateReviewRequest;
+import app.review.web.dto.ReviewResponse;
 import app.review.web.dto.UpdateReviewRequest;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(ProductReviewController.class)
 class ProductReviewControllerTest {
 
-    @Mock
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
     private ProductReviewService productReviewService;
 
-    private ProductReviewController productReviewController;
-
-    @BeforeEach
-    void setUp() {
-        productReviewController =
-                new ProductReviewController(productReviewService);
-    }
-
     @Test
-    void getReviewsShouldReturnReviewsWithOkStatus() {
+    void getReviewsShouldReturnReviewsWithOkStatus() throws Exception {
+        UUID reviewId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
 
         ReviewResponse review = ReviewResponse.builder()
-                .id(UUID.randomUUID())
+                .id(reviewId)
                 .productId(productId)
-                .userId(UUID.randomUUID())
+                .userId(userId)
                 .authorName("Ivan Ivanov")
                 .rating(5)
                 .comment("Excellent natural honey.")
@@ -49,30 +55,36 @@ class ProductReviewControllerTest {
         when(productReviewService.getReviewsByProductId(productId))
                 .thenReturn(List.of(review));
 
-        ResponseEntity<List<ReviewResponse>> response =
-                productReviewController.getReviews(productId);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(List.of(review), response.getBody());
+        mockMvc.perform(get("/api/v1/reviews")
+                        .queryParam("productId", productId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$[0].id")
+                        .value(reviewId.toString()))
+                .andExpect(jsonPath("$[0].productId")
+                        .value(productId.toString()))
+                .andExpect(jsonPath("$[0].userId")
+                        .value(userId.toString()))
+                .andExpect(jsonPath("$[0].authorName")
+                        .value("Ivan Ivanov"))
+                .andExpect(jsonPath("$[0].rating").value(5))
+                .andExpect(jsonPath("$[0].comment")
+                        .value("Excellent natural honey."));
 
         verify(productReviewService)
                 .getReviewsByProductId(productId);
     }
 
     @Test
-    void createReviewShouldReturnCreatedReview() {
+    void createReviewShouldReturnCreatedReview() throws Exception {
+        UUID reviewId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
-        CreateReviewRequest request = new CreateReviewRequest();
-        request.setProductId(productId);
-        request.setUserId(userId);
-        request.setAuthorName("Ivan Ivanov");
-        request.setRating(5);
-        request.setComment("Excellent natural honey.");
-
         ReviewResponse createdReview = ReviewResponse.builder()
-                .id(UUID.randomUUID())
+                .id(reviewId)
                 .productId(productId)
                 .userId(userId)
                 .authorName("Ivan Ivanov")
@@ -80,31 +92,91 @@ class ProductReviewControllerTest {
                 .comment("Excellent natural honey.")
                 .build();
 
-        when(productReviewService.createReview(request))
-                .thenReturn(createdReview);
+        when(productReviewService.createReview(
+                any(CreateReviewRequest.class)
+        )).thenReturn(createdReview);
 
-        ResponseEntity<ReviewResponse> response =
-                productReviewController.createReview(request);
+        String requestBody = """
+                {
+                  "productId": "%s",
+                  "userId": "%s",
+                  "authorName": "Ivan Ivanov",
+                  "rating": 5,
+                  "comment": "Excellent natural honey."
+                }
+                """.formatted(productId, userId);
 
-        assertEquals(
-                HttpStatus.CREATED,
-                response.getStatusCode()
-        );
-        assertEquals(createdReview, response.getBody());
+        mockMvc.perform(post("/api/v1/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isCreated())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.id")
+                        .value(reviewId.toString()))
+                .andExpect(jsonPath("$.productId")
+                        .value(productId.toString()))
+                .andExpect(jsonPath("$.userId")
+                        .value(userId.toString()))
+                .andExpect(jsonPath("$.rating").value(5))
+                .andExpect(jsonPath("$.comment")
+                        .value("Excellent natural honey."));
 
-        verify(productReviewService).createReview(request);
+        verify(productReviewService)
+                .createReview(any(CreateReviewRequest.class));
     }
 
     @Test
-    void updateReviewShouldReturnUpdatedReview() {
+    void createReviewShouldReturnJsonErrorForInvalidRequest()
+            throws Exception {
+
+        String requestBody = """
+                {
+                  "productId": "%s",
+                  "userId": "%s",
+                  "authorName": "Ivan Ivanov",
+                  "rating": 6,
+                  "comment": "short"
+                }
+                """.formatted(
+                UUID.randomUUID(),
+                UUID.randomUUID()
+        );
+
+        mockMvc.perform(post("/api/v1/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error")
+                        .value("Bad Request"))
+                .andExpect(jsonPath(
+                        "$.message",
+                        containsString(
+                                "Rating must be at most 5."
+                        )
+                ))
+                .andExpect(jsonPath(
+                        "$.message",
+                        containsString(
+                                "Comment must be between 10 and 1000 symbols."
+                        )
+                ));
+
+        verify(productReviewService, never())
+                .createReview(any(CreateReviewRequest.class));
+    }
+
+    @Test
+    void updateReviewShouldReturnUpdatedReview() throws Exception {
         UUID reviewId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-
-        UpdateReviewRequest request = new UpdateReviewRequest();
-        request.setUserId(userId);
-        request.setRating(4);
-        request.setComment("The updated review comment.");
 
         ReviewResponse updatedReview = ReviewResponse.builder()
                 .id(reviewId)
@@ -115,38 +187,58 @@ class ProductReviewControllerTest {
                 .comment("The updated review comment.")
                 .build();
 
-        when(productReviewService.updateReview(reviewId, request))
-                .thenReturn(updatedReview);
+        when(productReviewService.updateReview(
+                eq(reviewId),
+                any(UpdateReviewRequest.class)
+        )).thenReturn(updatedReview);
 
-        ResponseEntity<ReviewResponse> response =
-                productReviewController.updateReview(
-                        reviewId,
-                        request
-                );
+        String requestBody = """
+                {
+                  "userId": "%s",
+                  "rating": 4,
+                  "comment": "The updated review comment."
+                }
+                """.formatted(userId);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(updatedReview, response.getBody());
+        mockMvc.perform(put(
+                        "/api/v1/reviews/{reviewId}",
+                        reviewId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.id")
+                        .value(reviewId.toString()))
+                .andExpect(jsonPath("$.userId")
+                        .value(userId.toString()))
+                .andExpect(jsonPath("$.rating").value(4))
+                .andExpect(jsonPath("$.comment")
+                        .value("The updated review comment."));
 
         verify(productReviewService)
-                .updateReview(reviewId, request);
+                .updateReview(
+                        eq(reviewId),
+                        any(UpdateReviewRequest.class)
+                );
     }
 
     @Test
-    void deleteReviewShouldReturnNoContent() {
+    void deleteReviewShouldReturnNoContent() throws Exception {
         UUID reviewId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
-        ResponseEntity<Void> response =
-                productReviewController.deleteReview(
-                        reviewId,
-                        userId
-                );
-
-        assertEquals(
-                HttpStatus.NO_CONTENT,
-                response.getStatusCode()
-        );
-        assertEquals(null, response.getBody());
+        mockMvc.perform(delete(
+                        "/api/v1/reviews/{reviewId}",
+                        reviewId
+                )
+                        .queryParam(
+                                "userId",
+                                userId.toString()
+                        ))
+                .andExpect(status().isNoContent());
 
         verify(productReviewService)
                 .deleteReview(reviewId, userId);

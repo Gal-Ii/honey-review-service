@@ -152,7 +152,8 @@ Run the complete test and coverage verification:
 .\mvnw.cmd verify
 ```
 
-JaCoCo enforces a minimum of 70% line coverage. At the latest verification, all 20 tests passed and the measured line coverage was 79.02%.
+JaCoCo enforces a minimum of 70% line coverage. At the latest verification,
+all 31 tests passed and the measured line coverage was 87.94%.
 
 ## Repository
 
